@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SKYRUNNER: Pulau Meridian</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #87c5e8; font-family: "Segoe UI", Verdana, sans-serif; }
+  #scene { position: fixed; inset: 0; }
+  #scene canvas { display: block; }
+  .panel { background: rgba(8, 18, 30, 0.72); border: 2px solid rgba(255, 210, 62, 0.55); border-radius: 10px; color: #fff; }
+  #hud-top { position: fixed; top: 12px; left: 12px; right: 12px; display: flex; gap: 12px; align-items: flex-start; pointer-events: none; z-index: 5; }
+  .hud-box { padding: 10px 16px; text-align: center; min-width: 118px; }
+  .hud-box .label { font-size: 13px; letter-spacing: 2px; color: #9fd0ea; font-weight: 700; }
+  .hud-box .value { font-size: 44px; line-height: 1.05; font-weight: 800; font-family: monospace; color: #fff; text-shadow: 0 2px 6px #000; }
+  .hud-box .unit { font-size: 13px; color: #ffd23e; font-weight: 700; }
+  #hud-mission-box { flex: 1; min-width: 260px; }
+  #hud-mission { font-size: 24px; font-weight: 800; color: #ffd23e; letter-spacing: 1px; }
+  #hud-brief { font-size: 15px; color: #e8f2ff; margin-top: 2px; }
+  #hud-score-line { font-size: 18px; font-weight: 700; margin-top: 4px; color: #fff; }
+  #hud-score-line b { color: #ffd23e; font-size: 22px; }
+  #hud-timer { font-size: 26px; font-weight: 800; color: #ffd23e; }
+  .bar-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 13px; font-weight: 700; color: #cfe4f5; }
+  .bar { flex: 1; height: 12px; background: rgba(255,255,255,0.18); border-radius: 6px; overflow: hidden; }
+  .bar > div { height: 100%; }
+  #hud-left { position: fixed; left: 12px; bottom: 12px; display: flex; gap: 12px; align-items: flex-end; pointer-events: none; z-index: 5; }
+  #hud-attitude { background: rgba(8,18,30,0.72); border: 2px solid rgba(255,210,62,0.55); border-radius: 10px; }
+  #hud-thr-box { padding: 10px 14px; min-width: 170px; }
+  #hud-warn { position: fixed; top: 118px; left: 50%; transform: translateX(-50%); background: rgba(120, 10, 10, 0.82); border: 2px solid #ff5555; color: #fff; font-size: 22px; font-weight: 800; padding: 8px 22px; border-radius: 8px; display: none; z-index: 6; text-align: center; }
+  #hud-arrow { position: fixed; top: 170px; left: 50%; transform: translateX(-50%); color: #ffd23e; font-size: 20px; font-weight: 800; text-shadow: 0 2px 4px #000; display: none; z-index: 5; }
+  #hud-help { position: fixed; right: 12px; bottom: 12px; padding: 8px 12px; font-size: 13px; color: #dfeefc; line-height: 1.5; z-index: 5; pointer-events: none; }
+  #cockpit { position: fixed; left: 0; right: 0; bottom: 0; display: none; z-index: 4; pointer-events: none; text-align: center; }
+  #cockpit-panel { width: min(860px, 96vw); height: auto; border-top: 3px solid #3a4354; }
+  .overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; background: rgba(6, 20, 36, 0.55); z-index: 10; text-align: center; color: #fff; cursor: pointer; }
+  .overlay h1 { font-size: 58px; margin: 0; color: #ffd23e; text-shadow: 0 4px 14px #000; letter-spacing: 2px; }
+  .overlay h2 { font-size: 26px; margin: 8px 0 0; color: #fff; }
+  .overlay p { font-size: 18px; max-width: 640px; line-height: 1.55; color: #e8f2ff; }
+  .overlay .cta { margin-top: 18px; font-size: 22px; font-weight: 800; background: #e85d1f; padding: 12px 30px; border-radius: 10px; }
+  .overlay .keys { font-size: 15px; color: #cfe4f5; margin-top: 16px; line-height: 1.7; }
+  #overlay-end { display: none; }
+</style>
+</head>
+<body>
+<div id="scene"></div>
+
+<div id="hud-top">
+  <div class="panel hud-box"><div class="label">ALTITUDE</div><div class="value"><span id="hud-alt">0130</span></div><div class="unit">METRES</div></div>
+  <div class="panel hud-box"><div class="label">SPEED</div><div class="value"><span id="hud-spd">185</span></div><div class="unit">KNOTS</div></div>
+  <div class="panel hud-box"><div class="label">HEADING</div><div class="value"><span id="hud-hdg">000 N</span></div><div class="unit">COMPASS</div></div>
+  <div class="panel hud-box" id="hud-mission-box">
+    <div id="hud-mission">MISSION 1 — RING RUN</div>
+    <div id="hud-brief">Fly through all 8 orange rings. +250 each.</div>
+    <div id="hud-score-line">SCORE <b id="hud-score">0</b> &nbsp;·&nbsp; <span id="hud-rings">0 / 8 RINGS</span></div>
+    <div id="hud-timer" style="display:none">DELIVERY 90s</div>
+  </div>
+  <div class="panel hud-box" style="min-width:170px; text-align:left;">
+    <div class="bar-row">FUEL <div class="bar"><div id="hud-fuel-fill" style="width:100%; background:#37d67a;"></div></div></div>
+    <div class="bar-row">DMG <div class="bar"><div id="hud-dmg-fill" style="width:0%; background:#ff5555;"></div></div></div>
+    <div class="bar-row">THR <div class="bar"><div id="hud-thr-fill" style="width:62%; background:#ffd23e;"></div></div><span id="hud-thr-num">62%</span></div>
+  </div>
+</div>
+
+<div id="hud-warn"></div>
+<div id="hud-arrow"></div>
+
+<div id="hud-left">
+  <canvas id="hud-attitude" width="150" height="150"></canvas>
+  <div class="panel" id="hud-thr-box">
+    <div style="font-size:13px; letter-spacing:2px; color:#9fd0ea; font-weight:700;">ATTITUDE · THROTTLE</div>
+    <div style="font-size:15px; color:#e8f2ff; margin-top:4px;">W/S throttle · A/D roll<br>Arrows pitch · Q/E yaw<br>Space brake · Shift boost</div>
+  </div>
+</div>
+
+<div id="hud-help">C camera · R restart · M mute<br>Drag mouse to look around</div>
+
+<div id="cockpit"><canvas id="cockpit-panel" width="860" height="190"></canvas></div>
+
+<div class="overlay" id="overlay-start">
+  <h1>SKYRUNNER</h1>
+  <h2>Pulau Meridian — fly the Kestrel around the island</h2>
+  <p>Three sorties, one island. <b>Mission 1:</b> thread all 8 orange rings. <b>Mission 2:</b> land on Runway Meridian — under 110 kt, under 25 m. <b>Mission 3:</b> race the gold ring by Gunung Meridian before the timer dies. Watch your fuel: an empty tank means a glide, and a glide means a landing.</p>
+  <div class="cta">CLICK OR PRESS ENTER TO FLY</div>
+  <div class="keys">W/S throttle &nbsp;·&nbsp; A/D roll &nbsp;·&nbsp; Arrow keys pitch &nbsp;·&nbsp; Q/E yaw<br>Space brake &nbsp;·&nbsp; Shift boost &nbsp;·&nbsp; C cockpit view &nbsp;·&nbsp; R restart</div>
+</div>
+
+<div class="overlay" id="overlay-end">
+  <h1 id="end-title">CRASHED</h1>
+  <h2 id="end-score">Score 0</h2>
+  <p>The Kestrel is down, but Pulau Meridian is still there. Press R and fly the tour again.</p>
+  <div class="cta">PRESS R TO FLY AGAIN</div>
+</div>
+
+<script src="./vendor/three.min.js"></script>
+<script src="./src/rng.js"></script>
+<script src="./src/config.js"></script>
+<script src="./src/world.js"></script>
+<script src="./src/plane.js"></script>
+<script src="./src/physics.js"></script>
+<script src="./src/audio.js"></script>
+<script src="./src/input.js"></script>
+<script src="./src/hud.js"></script>
+<script src="./src/shots.js"></script>
+<script src="./src/main.js"></script>
+</body>
+</html>
